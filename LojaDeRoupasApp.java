@@ -6,14 +6,13 @@ public class LojaDeRoupasApp {
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
-        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/seubanco", "seuusuario",
-                "suasenha")) {
-            criarTabela(conn); // Certifique-se de chamar esta função apenas uma vez
-
+        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "",
+                "")) {
+            criarTabela(conn);
             while (true) {
                 exibirMenu();
                 int escolha = scanner.nextInt();
-                scanner.nextLine(); // Limpar o buffer
+                scanner.nextLine();
 
                 switch (escolha) {
                     case 1:
@@ -37,10 +36,10 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao conectar ao banco de dados. Verifique as credenciais e a conexão.");
-            e.printStackTrace();
+
         } catch (Exception e) {
             System.err.println("Erro inesperado. Encerrando o programa.");
-            e.printStackTrace();
+
         }
     }
 
@@ -80,8 +79,7 @@ public class LojaDeRoupasApp {
                 preco = scanner.nextBigDecimal();
             } catch (java.util.InputMismatchException e) {
                 System.out.println("Erro: Insira um valor numérico para o preço.");
-                scanner.nextLine(); // Limpar o buffer
-                return;
+                scanner.nextLine();
             }
 
             int quantidadeEstoque = 0;
@@ -90,7 +88,7 @@ public class LojaDeRoupasApp {
                 quantidadeEstoque = scanner.nextInt();
             } catch (java.util.InputMismatchException e) {
                 System.out.println("Erro: Insira um valor numérico para a quantidade em estoque.");
-                scanner.nextLine(); // Limpar o buffer
+                scanner.nextLine();
                 return;
             }
 
@@ -112,7 +110,7 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao inserir o produto. Por favor, tente novamente mais tarde.");
-            e.printStackTrace();
+
         }
     }
 
@@ -134,10 +132,10 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao excluir o produto. Por favor, tente novamente mais tarde.");
-            e.printStackTrace();
+
         } catch (java.util.InputMismatchException e) {
             System.out.println("Erro: Insira um ID válido para excluir o produto.");
-            scanner.nextLine(); // Limpar o buffer
+            scanner.nextLine();
         }
     }
 
@@ -166,7 +164,7 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao consultar produtos. Por favor, tente novamente mais tarde.");
-            e.printStackTrace();
+
         }
     }
 
@@ -174,15 +172,13 @@ public class LojaDeRoupasApp {
         try {
             System.out.print("ID do produto a ser alterado: ");
             int id = scanner.nextInt();
-            scanner.nextLine(); // Limpar o buffer
+            scanner.nextLine();
 
-            // Verifica se o produto existe antes de prosseguir
             if (!produtoExiste(conn, id)) {
                 System.out.println("Nenhum produto encontrado com o ID fornecido.");
                 return;
             }
 
-            // Obtém as novas informações do produto
             System.out.print("Novo nome do produto: ");
             String novoNome = scanner.nextLine();
 
@@ -195,7 +191,7 @@ public class LojaDeRoupasApp {
                 novoPreco = scanner.nextBigDecimal();
             } catch (java.util.InputMismatchException e) {
                 System.out.println("Erro: Insira um valor numérico para o novo preço.");
-                scanner.nextLine(); // Limpar o buffer
+                scanner.nextLine();
                 return;
             }
 
@@ -205,11 +201,10 @@ public class LojaDeRoupasApp {
                 novaQuantidadeEstoque = scanner.nextInt();
             } catch (java.util.InputMismatchException e) {
                 System.out.println("Erro: Insira um valor numérico para a nova quantidade em estoque.");
-                scanner.nextLine(); // Limpar o buffer
+                scanner.nextLine();
                 return;
             }
 
-            // Atualiza as informações do produto no banco de dados
             String sql = "UPDATE produto SET nome = ?, tipo = ?, preco = ?, quantidade_estoque = ? WHERE id = ?";
             try (PreparedStatement statement = conn.prepareStatement(sql)) {
                 statement.setString(1, novoNome);
@@ -228,14 +223,13 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao alterar o produto. Por favor, tente novamente mais tarde.");
-            e.printStackTrace();
+
         } catch (java.util.InputMismatchException e) {
             System.out.println("Erro: Insira um ID válido para alterar o produto.");
-            scanner.nextLine(); // Limpar o buffer
+            scanner.nextLine();
         }
     }
 
-    // Método auxiliar para verificar se um produto com o ID fornecido existe
     private static boolean produtoExiste(Connection conn, int id) throws SQLException {
         String sql = "SELECT id FROM produto WHERE id = ?";
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
