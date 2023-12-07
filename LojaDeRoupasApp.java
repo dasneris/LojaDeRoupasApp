@@ -6,9 +6,14 @@ public class LojaDeRoupasApp {
     private static final Scanner scanner = new Scanner(System.in);
 
     public static void main(String[] args) {
-        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "",
-                "")) {
-            criarTabela(conn);
+        try {
+            Connection conn = DriverManager.getConnection(
+                    "jdbc:postgresql://127.0.0.1:5432/java?ssl=false",
+                    "postgres",
+                    "12345");
+            criarTabelaFornecedor(conn);
+            criarTabelaProduto(conn);
+            criarViewProdutosFornecedores(conn);
             while (true) {
                 exibirMenu();
                 int escolha = scanner.nextInt();
@@ -28,6 +33,12 @@ public class LojaDeRoupasApp {
                         alterarProduto(conn);
                         break;
                     case 5:
+                        consultarFornecedores(conn);
+                        break;
+                    case 6:
+                        consultarView(conn);
+                        break;
+                    case 7:
                         System.out.println("Saindo do programa. Até mais!");
                         System.exit(0);
                     default:
@@ -36,20 +47,33 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao conectar ao banco de dados. Verifique as credenciais e a conexão.");
+            e.printStackTrace();
 
         } catch (Exception e) {
             System.err.println("Erro inesperado. Encerrando o programa.");
-
+            e.printStackTrace();
         }
     }
 
-    private static void criarTabela(Connection conn) throws SQLException {
+    private static void criarTabelaProduto(Connection conn) throws SQLException {
         String sql = "CREATE TABLE IF NOT EXISTS produto (" +
                 "id SERIAL PRIMARY KEY," +
                 "nome VARCHAR(255) NOT NULL," +
                 "tipo VARCHAR(255) NOT NULL," +
                 "preco NUMERIC(10, 2) NOT NULL," +
-                "quantidade_estoque INTEGER NOT NULL)";
+                "quantidade_estoque INTEGER NOT NULL," +
+                "fornecedor_id INTEGER REFERENCES fornecedor(id))";
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate(sql);
+        }
+    }
+
+    private static void criarTabelaFornecedor(Connection conn) throws SQLException {
+        String sql = "CREATE TABLE IF NOT EXISTS fornecedor (" +
+                "id SERIAL PRIMARY KEY," +
+                "nome VARCHAR(255) NOT NULL," +
+                "endereco VARCHAR(255) NOT NULL," +
+                "telefone VARCHAR(20) NOT NULL)";
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate(sql);
         }
@@ -61,7 +85,9 @@ public class LojaDeRoupasApp {
         System.out.println("2. Excluir Produto");
         System.out.println("3. Consultar Produtos");
         System.out.println("4. Alterar Produto");
-        System.out.println("5. Sair");
+        System.out.println("5. Consultar Fornecedores");
+        System.out.println("6. Consultar Produtos com Fornecedores (view)");
+        System.out.println("7. Sair");
         System.out.print("Escolha uma opção: ");
     }
 
@@ -92,12 +118,23 @@ public class LojaDeRoupasApp {
                 return;
             }
 
-            String sql = "INSERT INTO produto (nome, tipo, preco, quantidade_estoque) VALUES (?, ?, ?, ?)";
+            int fornecedorId = 0;
+            try {
+                System.out.print("ID do fornecedor: ");
+                fornecedorId = scanner.nextInt();
+            } catch (java.util.InputMismatchException e) {
+                System.out.println("Erro: Insira um valor numérico para o ID do fornecedor.");
+                scanner.nextLine();
+                return;
+            }
+
+            String sql = "INSERT INTO produto (nome, tipo, preco, quantidade_estoque, fornecedor_id) VALUES (?, ?, ?, ?, ?)";
             try (PreparedStatement statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 statement.setString(1, nome);
                 statement.setString(2, tipo);
                 statement.setBigDecimal(3, preco);
                 statement.setInt(4, quantidadeEstoque);
+                statement.setInt(5, fornecedorId);
                 statement.executeUpdate();
 
                 try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
@@ -110,7 +147,10 @@ public class LojaDeRoupasApp {
             }
         } catch (SQLException e) {
             System.err.println("Erro ao inserir o produto. Por favor, tente novamente mais tarde.");
-
+            e.printStackTrace();
+        } catch (java.util.InputMismatchException e) {
+            System.out.println("Erro: Insira um valor válido para o produto.");
+            scanner.nextLine();
         }
     }
 
@@ -141,9 +181,11 @@ public class LojaDeRoupasApp {
 
     private static void consultarProdutos(Connection conn) {
         try {
-            String sql = "SELECT * FROM produto";
+            String sql = "SELECT p.id, p.nome, p.tipo, p.preco, p.quantidade_estoque, f.nome as fornecedor_nome " +
+                    "FROM produto p " +
+                    "JOIN fornecedor f ON p.fornecedor_id = f.id";
             try (Statement statement = conn.createStatement();
-                    ResultSet resultSet = statement.executeQuery(sql)) {
+                 ResultSet resultSet = statement.executeQuery(sql)) {
 
                 while (resultSet.next()) {
                     int id = resultSet.getInt("id");
@@ -151,6 +193,7 @@ public class LojaDeRoupasApp {
                     String tipo = resultSet.getString("tipo");
                     BigDecimal preco = resultSet.getBigDecimal("preco");
                     int quantidadeEstoque = resultSet.getInt("quantidade_estoque");
+                    String fornecedorNome = resultSet.getString("fornecedor_nome");
 
                     Produto produto = new Produto();
                     produto.setId(id);
@@ -160,6 +203,7 @@ public class LojaDeRoupasApp {
                     produto.setQuantidadeEstoque(quantidadeEstoque);
 
                     System.out.println(produto);
+                    System.out.println("Fornecedor: " + fornecedorNome);
                 }
             }
         } catch (SQLException e) {
@@ -205,14 +249,24 @@ public class LojaDeRoupasApp {
                 return;
             }
 
-            String sql = "UPDATE produto SET nome = ?, tipo = ?, preco = ?, quantidade_estoque = ? WHERE id = ?";
+            int novoFornecedorId = 0;
+            try {
+                System.out.print("Novo ID do fornecedor: ");
+                novoFornecedorId = scanner.nextInt();
+            } catch (java.util.InputMismatchException e) {
+                System.out.println("Erro: Insira um valor numérico para o novo ID do fornecedor.");
+                scanner.nextLine();
+                return;
+            }
+
+            String sql = "UPDATE produto SET nome = ?, tipo = ?, preco = ?, quantidade_estoque = ?, fornecedor_id = ? WHERE id = ?";
             try (PreparedStatement statement = conn.prepareStatement(sql)) {
                 statement.setString(1, novoNome);
                 statement.setString(2, novoTipo);
                 statement.setBigDecimal(3, novoPreco);
                 statement.setInt(4, novaQuantidadeEstoque);
-                statement.setInt(5, id);
-
+                statement.setInt(5, novoFornecedorId);
+                statement.setInt(6, id);
                 int rowsAffected = statement.executeUpdate();
 
                 if (rowsAffected > 0) {
@@ -227,6 +281,75 @@ public class LojaDeRoupasApp {
         } catch (java.util.InputMismatchException e) {
             System.out.println("Erro: Insira um ID válido para alterar o produto.");
             scanner.nextLine();
+        }
+    }
+
+    private static void criarViewProdutosFornecedores(Connection conn) throws SQLException {
+        String sql = "CREATE OR REPLACE VIEW vw_produtos_fornecedores AS " +
+                "SELECT p.id AS produto_id, p.nome AS produto_nome, p.tipo AS produto_tipo, " +
+                "p.preco AS produto_preco, p.quantidade_estoque, f.nome AS fornecedor_nome " +
+                "FROM produto p " +
+                "JOIN fornecedor f ON p.fornecedor_id = f.id";
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate(sql);
+        }
+    }
+
+    private static void consultarView(Connection conn) {
+        try {
+            String sql = "SELECT produto_id, produto_nome, produto_tipo, produto_preco, quantidade_estoque, fornecedor_nome " +
+                    "FROM vw_produtos_fornecedores";
+            try (Statement statement = conn.createStatement();
+                 ResultSet resultSet = statement.executeQuery(sql)) {
+
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("produto_id");
+                    String nome = resultSet.getString("produto_nome");
+                    String tipo = resultSet.getString("produto_tipo");
+                    BigDecimal preco = resultSet.getBigDecimal("produto_preco");
+                    int quantidadeEstoque = resultSet.getInt("quantidade_estoque");
+                    String fornecedorNome = resultSet.getString("fornecedor_nome");
+
+                    Produto produto = new Produto();
+                    produto.setId(id);
+                    produto.setNome(nome);
+                    produto.setTipo(tipo);
+                    produto.setPreco(preco);
+                    produto.setQuantidadeEstoque(quantidadeEstoque);
+
+                    System.out.println(produto);
+                    System.out.println("Fornecedor: " + fornecedorNome);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erro ao consultar produtos. Por favor, tente novamente mais tarde.");
+        }
+    }
+
+    private static void consultarFornecedores(Connection conn) {
+        try {
+            String sql = "SELECT * FROM fornecedor";
+            try (Statement statement = conn.createStatement();
+                 ResultSet resultSet = statement.executeQuery(sql)) {
+
+                System.out.println("===== Fornecedores =====");
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    String nome = resultSet.getString("nome");
+                    String endereco = resultSet.getString("endereco");
+                    String telefone = resultSet.getString("telefone");
+
+                    Fornecedor fornecedor = new Fornecedor();
+                    fornecedor.setId(id);
+                    fornecedor.setNome(nome);
+                    fornecedor.setEndereco(endereco);
+                    fornecedor.setTelefone(telefone);
+
+                    System.out.println(fornecedor);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erro ao consultar fornecedores. Por favor, tente novamente mais tarde.");
         }
     }
 

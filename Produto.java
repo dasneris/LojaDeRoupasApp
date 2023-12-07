@@ -6,8 +6,9 @@ public class Produto {
     private String tipo;
     private BigDecimal preco;
     private int quantidadeEstoque;
+    private Fornecedor fornecedor;
 
-    // Construtores
+
     public Produto() {
     }
 
@@ -18,7 +19,6 @@ public class Produto {
         this.quantidadeEstoque = quantidadeEstoque;
     }
 
-    // Getters e Setters
     public int getId() {
         return id;
     }
@@ -59,7 +59,14 @@ public class Produto {
         this.quantidadeEstoque = quantidadeEstoque;
     }
 
-    // Método toString
+    public Fornecedor getFornecedor() {
+        return fornecedor;
+    }
+
+    public void setFornecedor(Fornecedor fornecedor) {
+        this.fornecedor = fornecedor;
+    }
+
     @Override
     public String toString() {
         return "ID: " + id +
